@@ -1,70 +1,23 @@
-# Project vars
-PROJECT_DIR := Projeto/
-PROJECT_TITLE := DiagnosticoDeSaude
-PROJECT_SOLUTION := DiagnosticoSaude.sln
+DEFAULT_STRUCTURE_SQL := structure.sql
+SAMPLES_SQL := samples.sql
 
-# Directories vars
-BIN_DIR := $(PROJECT_DIR)/bin/
-OBJ_DIR := $(PROJECT_DIR)/obj/
+# MySQL Server
+include .config
 
-RELEASE_DIR := $(BIN_DIR)/Release/
-DEBUG_DIR := $(BIN_DIR)/Debug/
+.PHONY : install create install-samples
 
-RELEASES_DIR := $(PWD)/releases/
-
-# NuGet vars
-NUGET_PACKAGES_DIR := $(PWD)/packages/
-
-# Tools vars
-MSBUILD := msbuild
-
-# Version vars
-BIN_NAME := DiagnosticoDeSaude.exe
-VERSION  = 1.0.3
-CODENAME := child
-
-# Compress vars
-TARGET_ZIP := $(PROJECT_TITLE)-$(VERSION).zip
-
-
-# DotEnvironment vars
-DOTENV := .env
-
-BUILD_DIR := $(PWD)/build
-
-
-.PHONY : build-release build-debug zip-release clean debug rleease 
-
-all: build-debug
-
-restore-packages: DiagnosticoSaude.sln
-	nuget restore .
-
-define build
-	$(MSBUILD) $(PROJECT_SOLUTION) /t:Build /p:Configuration=${1}
+define sql_exec
+	mysql -u$(DB_USER) -p$(DB_PASSWORD) -h 0.0.0.0  $(DB_NAME) < $(1)
 endef
 
-build-release: $(PROJECT_DIR) restore-packages
-	$(call build,Release)
+create:
+	@-mysqladmin -u$(DB_USER) -p$(DB_PASSWORD) -h 0.0.0.0  $@ $(DB_NAME)
 
-build-debug: $(PROJECT_DIR) restore-packages
-	$(call build,Debug)
+install: create $(DEFAULT_STRUCTURE_SQL)
+	@$(call sql_exec,$(DEFAULT_STRUCTURE_SQL))
 
-release: $(RELEASE-DIR)
-	mono $(RELEASE_DIR)/$(BIN_NAME)
+install-samples: $(DEFAULT_STRUCTURE_SQL) $(SAMPLES_SQL)
+	@$(call sql_exec,$(SAMPLES_SQL))
 
-debug: $(DEBUG_DIR)
-	mono $(DEBUG_DIR)/$(BIN_NAME)
-
-zip-release: build-release
-	mkdir -p $(BUILD_DIR); \
-	mkdir -p $(RELEASES_DIR); \
-	cp $(RELEASE_DIR)/*.* $(BUILD_DIR) ; \
-	cd $(BUILD_DIR) ; \
-	zip  $(TARGET_ZIP) *.* ;\
-	mv $(TARGET_ZIP) $(RELEASES_DIR)
-	echo $(VERSION)
-clean:
-	$(MSBUILD) /t:Clean /p:Configuration=Debug
-	$(MSBUILD) /t:Clean /p:Configuration=Release
-	rm -rf $(BUILD_DIR)
+drop:
+	@-echo "y"  | mysqladmin -u$(DB_USER) -p$(DB_PASSWORD) -h 0.0.0.0  $@ $(DB_NAME)
